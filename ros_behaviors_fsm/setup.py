@@ -20,6 +20,13 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'teleop = ros_behaviors_fsm.teleop:main',
+            'drive_square = ros_behaviors_fsm.drive_square:main',
+            'wall_follower = ros_behaviors_fsm.wall_follower:main',
+            'person_follower = ros_behaviors_fsm.person_follower:main',
+            'obstacle_avoider = ros_behaviors_fsm.obstacle_avoider:main',
+            'fsm = ros_behaviors_fsm.finite_state_controller:main',
+            'marker_sphere = ros_behaviors_fsm.marker_sphere:main',
         ],
     },
 )
