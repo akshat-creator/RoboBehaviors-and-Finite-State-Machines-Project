@@ -21,6 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'finite_state_controller = ros_behaviors_fsm.finite_state_controller:main',
+            'person_follower = ros_behaviors_fsm.person_follower:main',
+
         ],
     },
 )

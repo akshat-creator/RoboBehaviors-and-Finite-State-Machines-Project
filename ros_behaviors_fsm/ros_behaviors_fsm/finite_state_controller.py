@@ -38,6 +38,7 @@ class ros_square(Node):
         """ 
         if msg.data:
             self.e_stop.set()
+            print("estop detected")
             self.drive(linear=0.0, angular=0.0)
 
     def run_loop(self):
@@ -78,13 +79,13 @@ class ros_square(Node):
             self.drive(linear=0.0, angular=0.0)
 
     def drive_forward(self, distance):
-        """Drive straight for the spefcified distance.
+        """Drive straight for the spef  cified distance.
 
         Args:
             distance (_type_): the distance to drive forward.  Only positive
             values are supported.
         """
-        forward_vel = 0.1
+        forward_vel = 0.2
         if not self.e_stop.is_set():
             self.drive(linear=forward_vel, angular=0.0)
         sleep(distance / forward_vel)
