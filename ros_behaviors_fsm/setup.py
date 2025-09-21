@@ -23,8 +23,7 @@ setup(
             'finite_state_controller = ros_behaviors_fsm.finite_state_controller:main',
             'person_follower = ros_behaviors_fsm.person_follower:main',
             'draw_pentagon = ros_behaviors_fsm.draw_pentagon:main',
-
-
+            'spin_360 = ros_behaviors_fsm.spin_360:main',
         ],
     },
 )
