@@ -1,5 +1,5 @@
 """
-Draw Pentagon (continuous)
+Draw Pentagon
 --------------------------
 This node uses a simple time-based approach to drive a robot in a continuous
 regular pentagon loop: move straight for a fixed distance, then turn left 72°,

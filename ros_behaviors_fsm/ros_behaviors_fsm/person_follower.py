@@ -40,17 +40,16 @@ class ObjectFollower(Node):
         i, d = min(valid_ranges, key=lambda x: x[1])
         self.distance = d
         self.angle_index = i
-        print(f"Closest object: dist={d:.2f} m at index={i}")
+        self.get_logger().info(f"Closest object: dist={self.distance:.2f} m at index={self.angle_index}")
 
     def run_loop(self):
         """Continuously compute and publish velocity commands."""
         while not self.stop_event.is_set():
             msg = Twist()
             if self.distance is None or self.angle_index is None or self.scan_len is None:
-                # nothing detected → stop
                 msg.linear.x = 0.0
                 msg.angular.z = 0.0
-                print("No object detected → stopping")
+                self.get_logger().info("No object detected → stopping")
             else:
                 # distance control (linear velocity)
                 error_dist = self.distance - self.target_distance
@@ -65,7 +64,7 @@ class ObjectFollower(Node):
                 msg.linear.x = max(min(msg.linear.x, 0.3), -0.3)
                 msg.angular.z = max(min(msg.angular.z, 0.3), -0.3)
 
-                print(f"cmd_vel → linear: {msg.linear.x:.2f}, angular: {msg.angular.z:.2f}")
+                self.get_logger().info(f"cmd_vel → linear: {msg.linear.x:.2f}, angular: {msg.angular.z:.2f}")
 
             self.vel_pub.publish(msg)
             time.sleep(0.1)

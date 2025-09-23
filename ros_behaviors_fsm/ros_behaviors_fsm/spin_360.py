@@ -22,13 +22,10 @@ class SpinOnce(Node):
                  clockwise: bool = False):
         """
         Args:
-            angular_vel_rps: Magnitude of angular speed in rad/s (must be > 0).
+            angular_vel_rps: Magnitude of angular speed.
             clockwise: If True, spins clockwise (negative z); else CCW.
         """
         super().__init__('spin_360')
-        if angular_vel_rps <= 0.0:
-            raise ValueError("angular_vel_rps must be > 0")
-
         self.vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.angular_vel = float(angular_vel_rps) * (-1.0 if clockwise else 1.0)
 
@@ -42,7 +39,7 @@ class SpinOnce(Node):
         self.drive(0.0, 0.0)
         sleep(1.0)
 
-        total_angle_rad = 2.0 * math.pi  # 360°
+        total_angle_rad = 2.0 * math.pi
         duration_s = total_angle_rad / abs(self.angular_vel)
 
         self.get_logger().info(
@@ -57,8 +54,6 @@ class SpinOnce(Node):
         # Stop and finish
         self.drive(0.0, 0.0)
         self.get_logger().info("Done spinning 360°. Stopping node.")
-
-    # --- helper ------------------------------------------------------------
 
     def drive(self, linear: float, angular: float):
         msg = Twist()
