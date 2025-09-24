@@ -31,6 +31,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from gazebo_msgs.msg import ContactsState
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from std_msgs.msg import String
 
 # For dynamic message loading & safe dict conversion (/bump)
 from rosidl_runtime_py.utilities import get_message
@@ -39,61 +41,101 @@ from rosidl_runtime_py.convert import message_to_ordereddict
 
 class Mode(Enum):
     """Behavior modes"""
-    PENTAGON = 0   # Actively running the draw_pentagon behavior
-    FOLLOW = 1     # Actively running the person_follower behavior
+
+    PENTAGON = 0  # Actively running the draw_pentagon behavior
+    FOLLOW = 1  # Actively running the person_follower behavior
 
 
 class BehaviorFSM(Node):
     """Finite-state for behavior switching and scheduled spins."""
 
     def __init__(self):
-        super().__init__('finite_state_controller')
+        super().__init__("finite_state_controller")
 
         # Declare parameters
-        self.declare_parameter('object_present_threshold_m', 1.5)  # LaserScan threshold for target presence (meters)
-        self.declare_parameter('lost_object_timeout_s', 8.0)       # FOLLOW → PENTAGON fallback timeout (seconds)
-        self.declare_parameter('poll_rate_hz', 10.0)               # tick rate (Hz): how often the FSM checks for mode switches
-        self.declare_parameter('bumper_cooldown_s', 0.5)           # min time between bump events (seconds)
-        self.declare_parameter('bump_topic', '/bump')             # neato
-        self.declare_parameter('gazebo_bumper_topic', 'bumper')   # gazebo
-        self.declare_parameter('spin_interval_s', 15.0)           # min time between 360 spins (seconds)
-        self.declare_parameter('spin_pkg', 'ros_behaviors_fsm')
-        self.declare_parameter('spin_exec', 'spin_360')
+        self.declare_parameter(
+            "object_present_threshold_m", 1.5
+        )  # LaserScan threshold for target presence (meters)
+        self.declare_parameter(
+            "lost_object_timeout_s", 8.0
+        )  # FOLLOW → PENTAGON fallback timeout (seconds)
+        self.declare_parameter(
+            "poll_rate_hz", 10.0
+        )  # tick rate (Hz): how often the FSM checks for mode switches
+        self.declare_parameter(
+            "bumper_cooldown_s", 0.5
+        )  # min time between bump events (seconds)
+        self.declare_parameter("bump_topic", "/bump")  # neato
+        self.declare_parameter("gazebo_bumper_topic", "bumper")  # gazebo
+        self.declare_parameter(
+            "spin_interval_s", 15.0
+        )  # min time between 360 spins (seconds)
+        self.declare_parameter("spin_pkg", "ros_behaviors_fsm")
+        self.declare_parameter("spin_exec", "spin_360")
 
         # Resolve parameter values
-        self.object_present_threshold_m = float(self.get_parameter('object_present_threshold_m').value) 
-        self.lost_object_timeout_s = float(self.get_parameter('lost_object_timeout_s').value)
-        self.poll_rate_hz = float(self.get_parameter('poll_rate_hz').value)
-        self.poll_dt = 1.0 / max(self.poll_rate_hz, 1.0)  # polling interval (seconds) ticks
-        self._bumper_cooldown_s = float(self.get_parameter('bumper_cooldown_s').value)
-        self._bump_topic = str(self.get_parameter('bump_topic').value)
-        self._gazebo_bumper_topic = str(self.get_parameter('gazebo_bumper_topic').value)
-        self._spin_interval_s = float(self.get_parameter('spin_interval_s').value)
-        self._spin_pkg = str(self.get_parameter('spin_pkg').value)
-        self._spin_exec = str(self.get_parameter('spin_exec').value)
+        self.object_present_threshold_m = float(
+            self.get_parameter("object_present_threshold_m").value
+        )
+        self.lost_object_timeout_s = float(
+            self.get_parameter("lost_object_timeout_s").value
+        )
+        self.poll_rate_hz = float(self.get_parameter("poll_rate_hz").value)
+        self.poll_dt = 1.0 / max(
+            self.poll_rate_hz, 1.0
+        )  # polling interval (seconds) ticks
+        self._bumper_cooldown_s = float(self.get_parameter("bumper_cooldown_s").value)
+        self._bump_topic = str(self.get_parameter("bump_topic").value)
+        self._gazebo_bumper_topic = str(self.get_parameter("gazebo_bumper_topic").value)
+        self._spin_interval_s = float(self.get_parameter("spin_interval_s").value)
+        self._spin_pkg = str(self.get_parameter("spin_pkg").value)
+        self._spin_exec = str(self.get_parameter("spin_exec").value)
+
+        sensor_qos = QoSProfile(
+            depth=5,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+        )
 
         # Publishers / Subscribers
-        self.vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        self.create_subscription(LaserScan, 'scan', self._on_scan, 10)
-        self.create_subscription(ContactsState, self._gazebo_bumper_topic, self._on_bumper_contacts, 10)
+        self.vel_pub = self.create_publisher(Twist, "cmd_vel", 10)
+        self.create_subscription(LaserScan, "scan", self._on_scan, sensor_qos)
+        self.create_subscription(
+            ContactsState,
+            self._gazebo_bumper_topic,
+            self._on_bumper_contacts,
+            sensor_qos,
+        )
+        self.state_pub = self.create_publisher(String, "fsm/state", 10)
+
+        def _publish_state(self):
+            msg = String()
+            msg.data = self.mode.name
+            self.state_pub.publish(msg)
 
         # Real robot bump subscriber: resolve & subscribe dynamically (retries)
         self._bump_sub = None
-        self.create_timer(1.0, self._ensure_bump_subscription)  # subscribe to the bump topic, retry until it succeeds
-        self.mode = Mode.PENTAGON         
-        self.child_proc = None             # Stores the running process for the current behavior
+        self.create_timer(
+            1.0, self._ensure_bump_subscription
+        )  # subscribe to the bump topic, retry until it succeeds
+        self.mode = Mode.PENTAGON
+        self.child_proc = None  # Stores the running process for the current behavior
 
-        self._last_seen_ts = None          # how long the target has been out of view.
-        self._has_target_now = False       # whether the target is currently detected
+        self._last_seen_ts = None  # how long the target has been out of view.
+        self._has_target_now = False  # whether the target is currently detected
 
-        self._bumper_contact_streak = 0   # counts consecutive bump detections
-        self._last_bumper_switch_ts = 0.0 # time when last bump-triggered switch happened
+        self._bumper_contact_streak = 0  # counts consecutive bump detections
+        self._last_bumper_switch_ts = (
+            0.0  # time when last bump-triggered switch happened
+        )
 
         # Spin scheduler state
         self._last_spin_ts = 0.0
         self._spin_thread = Thread(target=self._spin_scheduler_loop, daemon=True)
         self._spin_in_progress = Event()
-        self._proc_lock = Lock()  # ensures only one thread can start/stop the behavior process at a time
+        self._proc_lock = (
+            Lock()
+        )  # ensures only one thread can start/stop the behavior process at a time
 
         self._start_pentagon()
 
@@ -110,9 +152,8 @@ class BehaviorFSM(Node):
             f"gazebo_bumper_topic='{self._gazebo_bumper_topic}', bump_topic='{self._bump_topic}'"
         )
 
-
     def _ensure_bump_subscription(self):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Try to subscribe to the bump sensor topic for the neato.
         This function is called periodically until the subscription succeeds.
         It dynamically determines the message type of the bump topic and creates the subscriber.
@@ -120,14 +161,19 @@ class BehaviorFSM(Node):
         """
         try:
             msg_type_str = subprocess.check_output(
-                ['ros2', 'topic', 'type', self._bump_topic],
-                text=True, stderr=subprocess.STDOUT
+                ["ros2", "topic", "type", self._bump_topic],
+                text=True,
+                stderr=subprocess.STDOUT,
             ).strip()
             if not msg_type_str:
                 return
             MsgT = get_message(msg_type_str)
-            self._bump_sub = self.create_subscription(MsgT, self._bump_topic, self._on_bump_generic, 10)
-            self.get_logger().info(f"Subscribed to '{self._bump_topic}' (type: {msg_type_str}).")
+            self._bump_sub = self.create_subscription(
+                MsgT, self._bump_topic, self._on_bump_generic, 10
+            )
+            self.get_logger().info(
+                f"Subscribed to '{self._bump_topic}' (type: {msg_type_str})."
+            )
         except subprocess.CalledProcessError:
             pass
         except Exception as e:
@@ -146,7 +192,7 @@ class BehaviorFSM(Node):
 
         pressed = False
         if isinstance(d, dict):
-            preferred = ('left_front', 'left_side', 'right_front', 'right_side')
+            preferred = ("left_front", "left_side", "right_front", "right_side")
             any_preferred = any(k in d for k in preferred)
             keys = preferred if any_preferred else tuple(d.keys())
 
@@ -170,9 +216,8 @@ class BehaviorFSM(Node):
         has_contact = len(msg.states) > 0
         self._register_bump_event(has_contact)
 
-
     def _register_bump_event(self, pressed: bool):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Handle bump (collision) events from neato or simulation.
 
         This function tracks consecutive bump detections and enforces a cooldown period between mode switches.
@@ -207,7 +252,7 @@ class BehaviorFSM(Node):
             self._switch_to_follow()
 
     def _on_scan(self, msg: LaserScan):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Function for LaserScan messages to detect if a target object is present within a threshold distance.
 
         Scans all valid range readings in the incoming LaserScan message. If any reading is within the
@@ -220,7 +265,11 @@ class BehaviorFSM(Node):
         """
         thr = self.object_present_threshold_m
         has_target = any(
-            (d is not None) and (not math.isinf(d)) and (not math.isnan(d)) and (d > 0.0) and (d <= thr)
+            (d is not None)
+            and (not math.isinf(d))
+            and (not math.isnan(d))
+            and (d > 0.0)
+            and (d <= thr)
             for d in msg.ranges
         )
         self._has_target_now = has_target
@@ -238,8 +287,15 @@ class BehaviorFSM(Node):
         """
         if self.mode == Mode.FOLLOW:
             now = time.monotonic()
-            no_view_duration = float('inf') if self._last_seen_ts is None else (now - self._last_seen_ts)
-            if no_view_duration > self.lost_object_timeout_s and not self._spin_in_progress.is_set():
+            no_view_duration = (
+                float("inf")
+                if self._last_seen_ts is None
+                else (now - self._last_seen_ts)
+            )
+            if (
+                no_view_duration > self.lost_object_timeout_s
+                and not self._spin_in_progress.is_set()
+            ):
                 self.get_logger().info(
                     f"FOLLOW: lost target for {no_view_duration:.1f}s → switching back to PENTAGON."
                 )
@@ -248,7 +304,7 @@ class BehaviorFSM(Node):
     # -------------------- Spin scheduler --------------------
 
     def _spin_scheduler_loop(self):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Background thread loop that schedules periodic 360° spins while in FOLLOW mode.
 
         This loop runs continuously as long as the ROS node is active. Every 0.1 seconds, it checks if the FSM
@@ -262,11 +318,13 @@ class BehaviorFSM(Node):
             if self.mode != Mode.FOLLOW:
                 continue
             now = time.monotonic()
-            if (now - self._last_spin_ts) >= self._spin_interval_s and not self._spin_in_progress.is_set():
+            if (
+                now - self._last_spin_ts
+            ) >= self._spin_interval_s and not self._spin_in_progress.is_set():
                 self._perform_spin_once()
 
     def _perform_spin_once(self):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Perform a single 360° spin while in FOLLOW mode, then resume following.
 
         This method is called by the spin scheduler when it is time to perform a spin. It:
@@ -288,7 +346,7 @@ class BehaviorFSM(Node):
         with self._proc_lock:
             self._kill_child()
 
-        spin_cmd = ['ros2', 'run', self._spin_pkg, self._spin_exec]
+        spin_cmd = ["ros2", "run", self._spin_pkg, self._spin_exec]
         self.get_logger().info(f"Running spin: {' '.join(spin_cmd)}")
         try:
             spin_proc = subprocess.Popen(
@@ -301,7 +359,7 @@ class BehaviorFSM(Node):
             self.get_logger().error(f"Failed to launch spin: {e}")
         # Resume FOLLOW after completing the spin
         self.get_logger().info("Resuming FOLLOW after spin.")
-        self._spawn_behavior(['ros2', 'run', 'ros_behaviors_fsm', 'person_follower'])
+        self._spawn_behavior(["ros2", "run", "ros_behaviors_fsm", "person_follower"])
         self.mode = Mode.FOLLOW
         self._last_seen_ts = time.monotonic() if self._has_target_now else None
         self._last_spin_ts = time.monotonic()
@@ -311,51 +369,63 @@ class BehaviorFSM(Node):
 
     def _start_pentagon(self):
         with self._proc_lock:
-            self._spawn_behavior(['ros2', 'run', 'ros_behaviors_fsm', 'draw_pentagon'])
+            self._spawn_behavior(["ros2", "run", "ros_behaviors_fsm", "draw_pentagon"])
             self.mode = Mode.PENTAGON
             self._last_seen_ts = None
             self._has_target_now = False
 
     def _switch_to_follow(self):
         with self._proc_lock:
-            self._spawn_behavior(['ros2', 'run', 'ros_behaviors_fsm', 'person_follower'])
+            self._spawn_behavior(
+                ["ros2", "run", "ros_behaviors_fsm", "person_follower"]
+            )
             self.mode = Mode.FOLLOW
             self._last_seen_ts = time.monotonic() if self._has_target_now else None
             self._last_spin_ts = time.monotonic()
 
     def _spawn_behavior(self, cmd):
-        """ (Co-Pilot was used to write this docstring)
+        """(Co-Pilot was used to write this docstring)
         Start a new subprocess to run the specified robot behavior.
 
         This method first stops any currently running behavior subprocess to ensure only one behavior runs at a time.
-        It then launches the new behavior as a subprocess using the provided command list. 
+        It then launches the new behavior as a subprocess using the provided command list.
         If launching the subprocess fails, it logs an error and clears the process handle.
 
         Args:
             cmd (list of str): The command and arguments to launch the new behavior as a subprocess.
         """
-        self._kill_child()
-        self.get_logger().info(f"Launching behavior: {' '.join(cmd)}")
-        try:
-            self.child_proc = subprocess.Popen(
-                cmd, stdout=sys.stdout, stderr=sys.stderr, preexec_fn=os.setsid
-            )
-        except Exception as e:
-            self.get_logger().error(f"Failed to start behavior '{cmd}': {e}")
-            self.child_proc = None
+        self._publish_stop()
 
-    def _kill_child(self):
-        if self.child_proc is None:
-            return
-        if self.child_proc.poll() is not None:
-            self.child_proc = None
-            return
-        try:
-            self.get_logger().info("Stopping current behavior...")
-            os.killpg(os.getpgid(self.child_proc.pid), signal.SIGINT)
-            time.sleep(0.2)
-        finally:
-            self.child_proc = None
+    self._kill_child()
+    self.get_logger().info(f"Launching behavior: {' '.join(cmd)}")
+    try:
+        self.child_proc = subprocess.Popen(
+            cmd, stdout=sys.stdout, stderr=sys.stderr, preexec_fn=os.setsid
+        )
+    except Exception as e:
+        self.get_logger().error(f"Failed to start behavior '{cmd}': {e}")
+        self.child_proc = None
+
+
+def _kill_child(self):
+    if self.child_proc is None:
+        return
+    if self.child_proc.poll() is not None:
+        self.child_proc = None
+        return
+    try:
+        self.get_logger().info("Stopping current behavior...")
+        os.killpg(os.getpgid(self.child_proc.pid), signal.SIGINT)
+        # fallback terminate if it doesn’t die quickly
+        for _ in range(10):
+            if self.child_proc.poll() is not None:
+                break
+            time.sleep(0.05)
+        if self.child_proc.poll() is None:
+            os.killpg(os.getpgid(self.child_proc.pid), signal.SIGTERM)
+    finally:
+        self._publish_stop()
+        self.child_proc = None
 
     def _publish_stop(self):
         msg = Twist()
@@ -370,6 +440,7 @@ class BehaviorFSM(Node):
         finally:
             super().destroy_node()
 
+
 def main(args=None):
     rclpy.init(args=args)
     node = BehaviorFSM()
@@ -381,5 +452,6 @@ def main(args=None):
         node.destroy_node()
         rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

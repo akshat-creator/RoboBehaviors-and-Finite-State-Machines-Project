@@ -1,0 +1,27 @@
+ros_behaviors_fsm:
+  ros__parameters:
+    use_sim_time: false
+
+    # Generic motion
+    linear_speed: 0.15 # m/s
+    angular_speed: 0.8 # rad/s
+
+    # Draw pentagon
+    side_length_m: 0.5
+    corner_angle_deg: 72
+
+    # Spin 360
+    spin_speed: 0.8
+    spin_tolerance_deg: 5.0
+
+    # Person follower (example thresholds)
+    follow_min_range_m: 0.6
+    follow_max_range_m: 1.2
+    follow_kp_linear: 0.6
+    follow_kp_angular: 1.2
+
+    # FSM transitions (examples)
+    fsm.start_state: "IDLE"
+    fsm.timeout_drive_s: 12.0
+    fsm.timeout_spin_s: 6.0
+    fsm.obstacle_range_m: 0.35

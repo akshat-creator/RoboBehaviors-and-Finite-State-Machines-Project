@@ -57,16 +57,39 @@ One paragraph on your goal, environment (ROS 2 Humble, Neato), and outcomes.
 - Parameters (`config/params.yaml`)
 - Launch files
 
+### State Diagram
+```mermaid
+stateDiagram-v2
+    [*] --> DRAW_PENTAGRAM
+
+    DRAW_PENTAGRAM --> DRAW_PENTAGRAM: continue until bump
+    DRAW_PENTAGRAM --> PERSON_FOLLOW: bump_detected
+
+    PERSON_FOLLOW --> SPIN_360: follow_time_elapsed
+    SPIN_360 --> PERSON_FOLLOW: spin_complete
+```
+
 ## Debugging & Tools
 
 - RViz config
 - Rosbag workflow
 - Takeaways (3–6 bullets, each w/ one-sentence elaboration)
 
-## Running
+## Build & Run
 
 ```bash
-colcon build --symlink-install
-. install/setup.bash
-ros2 launch ros_behaviors_fsm/fsm.launch.py
-```
+# Build
+colcon build --packages-select ros_behaviors_fsm
+source install/setup.bash
+
+# Run FSM (with params & RViz)
+ros2 launch ros_behaviors_fsm fsm.launch.py use_sim_time:=false
+
+# Run individual behaviors (debug)
+ros2 run ros_behaviors_fsm draw_pentagon
+ros2 run ros_behaviors_fsm spin_360
+ros2 run ros_behaviors_fsm person_follower
+
+# View RViz
+rviz2 -d $(ros2 pkg prefix ros_behaviors_fsm)/share/ros_behaviors_fsm/rviz/default.rviz
+

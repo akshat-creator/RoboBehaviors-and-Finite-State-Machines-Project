@@ -1,0 +1,16 @@
+Panels:
+  - Class: rviz/Displays
+  - Class: rviz/Views
+Visualization Manager:
+  Global Options:
+    Fixed Frame: odom
+  Displays:
+    - Class: rviz/RobotModel
+    - Class: rviz/LaserScan
+      Topic: /scan
+    - Class: rviz/Path
+      Topic: /plan
+    - Class: rviz/TF
+Views:
+  Current:
+    Class: rviz/TopDownOrtho
