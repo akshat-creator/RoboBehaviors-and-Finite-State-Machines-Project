@@ -20,18 +20,6 @@ One paragraph on your goal, environment (ROS 2 Humble, Neato), and outcomes.
 
 ## Behaviors
 
-### Teleop
-
-- **Problem:** drive with keyboard safely.
-- **Approach:** non-blocking input → `/cmd_vel`; space stops.
-- **Notes:** E-stop; tuned v/w.
-
-### Drive Square
-
-- **Problem:** 1m x 1m square.
-- **Approach:** timing-based (v, t_forward, w, t_turn).
-- **Diagram/GIF:** (embed)
-
 ### 360
 
 - **Problem:**
@@ -58,15 +46,14 @@ One paragraph on your goal, environment (ROS 2 Humble, Neato), and outcomes.
 - Launch files
 
 ### State Diagram
+
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAW_PENTAGRAM
-
-    DRAW_PENTAGRAM --> DRAW_PENTAGRAM: continue until bump
-    DRAW_PENTAGRAM --> PERSON_FOLLOW: bump_detected
-
-    PERSON_FOLLOW --> SPIN_360: follow_time_elapsed
-    SPIN_360 --> PERSON_FOLLOW: spin_complete
+    [*] --> PENTAGON
+    PENTAGON --> FOLLOW: bump_detected
+    FOLLOW --> PENTAGON: lost_target_timeout
+    FOLLOW --> SPIN: spin_scheduled
+    SPIN --> FOLLOW: spin_completed
 ```
 
 ## Debugging & Tools
@@ -83,13 +70,8 @@ colcon build --packages-select ros_behaviors_fsm
 source install/setup.bash
 
 # Run FSM (with params & RViz)
-ros2 launch ros_behaviors_fsm fsm.launch.py use_sim_time:=false
+ros2 run ros_behaviors_fsm finite_state_controller
 
-# Run individual behaviors (debug)
-ros2 run ros_behaviors_fsm draw_pentagon
-ros2 run ros_behaviors_fsm spin_360
-ros2 run ros_behaviors_fsm person_follower
-
-# View RViz
-rviz2 -d $(ros2 pkg prefix ros_behaviors_fsm)/share/ros_behaviors_fsm/rviz/default.rviz
-
+# View FSM state topic (live state)
+ros2 topic echo /fsm/state
+```

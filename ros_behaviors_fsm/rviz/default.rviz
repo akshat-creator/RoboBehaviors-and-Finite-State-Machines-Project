@@ -1,16 +1,20 @@
 Panels:
-  - Class: rviz/Displays
-  - Class: rviz/Views
+  - Class: rviz_default_plugins/Displays
+  - Class: rviz_default_plugins/Views
 Visualization Manager:
   Global Options:
     Fixed Frame: odom
   Displays:
-    - Class: rviz/RobotModel
-    - Class: rviz/LaserScan
+    - Name: RobotModel
+      Class: rviz_default_plugins/RobotModel
+    - Name: LaserScan
+      Class: rviz_default_plugins/LaserScan
       Topic: /scan
-    - Class: rviz/Path
+    - Name: Path
+      Class: rviz_default_plugins/Path
       Topic: /plan
-    - Class: rviz/TF
+    - Name: TF
+      Class: rviz_default_plugins/TF
 Views:
   Current:
-    Class: rviz/TopDownOrtho
+    Class: rviz_default_plugins/TopDownOrtho

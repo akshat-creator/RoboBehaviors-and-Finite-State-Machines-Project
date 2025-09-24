@@ -24,7 +24,7 @@ class DrawPentagon(Node):
         super().__init__('draw_pentagon')
         self.vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
 
-        # Motion parameters
+        # Pentagon geometry and speed parameters
         self.edge_length = edge_length_m
         self.forward_vel = forward_vel_mps
         self.angular_vel = angular_vel_rps
@@ -36,7 +36,7 @@ class DrawPentagon(Node):
 
     def run_loop(self):
         """Continuously runs pentagon edges and turns while the node is active."""
-        # First message is sometimes dropped—prime the pump.
+        # Send a zero velocity first to ensure robot is stopped
         self.drive(0.0, 0.0)
         sleep(1.0)
 

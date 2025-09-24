@@ -1,3 +1,5 @@
+# Object/person following node for Neato
+
 import rclpy
 from rclpy.node import Node
 from threading import Thread, Event
@@ -13,12 +15,12 @@ class ObjectFollower(Node):
         self.vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.create_subscription(LaserScan, 'scan', self.process_scan, 10)
 
-        # control parameters
+        # Control parameters
         self.target_distance = 0.5   # desired distance to object [m]
         self.Kp_lin = 0.5            # proportional gain (linear)
         self.Kp_ang = 0.01           # proportional gain (angular)
 
-        # state variables
+        # State variables
         self.distance = None         # distance to closest object
         self.angle_index = None      # index of closest object
         self.scan_len = None         # number of rays in the scan
@@ -36,7 +38,7 @@ class ObjectFollower(Node):
             self.angle_index = None
             return
 
-        # pick the closest object
+        # Pick the closest object
         i, d = min(valid_ranges, key=lambda x: x[1])
         self.distance = d
         self.angle_index = i
@@ -51,16 +53,16 @@ class ObjectFollower(Node):
                 msg.angular.z = 0.0
                 self.get_logger().info("No object detected → stopping")
             else:
-                # distance control (linear velocity)
+                # Distance control (linear velocity)
                 error_dist = self.distance - self.target_distance
                 msg.linear.x = self.Kp_lin * error_dist
 
-                # angle control (angular velocity)
+                # Angle control (angular velocity)
                 center_index = self.scan_len // 2
                 error_ang = self.angle_index - center_index
                 msg.angular.z = -self.Kp_ang * error_ang
 
-                # clamp speeds
+                # Clamp speeds for safety
                 msg.linear.x = max(min(msg.linear.x, 0.3), -0.3)
                 msg.angular.z = max(min(msg.angular.z, 0.3), -0.3)
 

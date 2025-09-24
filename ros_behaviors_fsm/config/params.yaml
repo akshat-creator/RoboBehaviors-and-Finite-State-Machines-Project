@@ -2,26 +2,46 @@ ros_behaviors_fsm:
   ros__parameters:
     use_sim_time: false
 
-    # Generic motion
+    # ---------------------------
+    # Generic motion (used by behaviors)
+    # ---------------------------
     linear_speed: 0.15 # m/s
     angular_speed: 0.8 # rad/s
 
-    # Draw pentagon
+    # Draw pentagon behavior
     side_length_m: 0.5
-    corner_angle_deg: 72
+    corner_angle_deg: 72 # internal code should convert to radians
 
-    # Spin 360
+    # Spin 360 behavior
     spin_speed: 0.8
     spin_tolerance_deg: 5.0
 
-    # Person follower (example thresholds)
+    # Person follower behavior
     follow_min_range_m: 0.6
     follow_max_range_m: 1.2
     follow_kp_linear: 0.6
     follow_kp_angular: 1.2
 
-    # FSM transitions (examples)
-    fsm.start_state: "IDLE"
-    fsm.timeout_drive_s: 12.0
-    fsm.timeout_spin_s: 6.0
-    fsm.obstacle_range_m: 0.35
+    # ---------------------------
+    # FSM (names match your BehaviorFSM code)
+    # ---------------------------
+    object_present_threshold_m: 1.5 # LaserScan “something is close” threshold
+    lost_object_timeout_s: 8.0 # FOLLOW -> PENTAGON fallback if target unseen
+    poll_rate_hz: 10.0
+    bumper_cooldown_s: 0.5
+    bump_topic: "/bump" # real Neato (autodetects type)
+    gazebo_bumper_topic: "bumper" # Gazebo ContactsState topic
+    spin_interval_s: 15.0 # do a 360 every 15s while following
+    spin_pkg: "ros_behaviors_fsm"
+    spin_exec: "spin_360"
+
+    # Optional bump debouncing (if you add that snippet)
+    # bump_min_contact_s: 0.05
+
+    # ---------------------------
+    # FYI: These keys were in your old file but your FSM doesn't use them
+    # (safe to remove or keep here for other nodes, but they won't affect FSM)
+    # fsm.start_state: "IDLE"
+    # fsm.timeout_drive_s: 12.0
+    # fsm.timeout_spin_s: 6.0
+    # fsm.obstacle_range_m: 0.35

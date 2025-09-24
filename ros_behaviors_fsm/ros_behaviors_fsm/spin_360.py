@@ -35,7 +35,7 @@ class SpinOnce(Node):
 
     def run_loop(self):
         """Publish a constant angular velocity for the required duration, once."""
-        # Some setups drop the first message; send a zero first.
+        # Send a zero velocity first to ensure robot is stopped
         self.drive(0.0, 0.0)
         sleep(1.0)
 
@@ -47,15 +47,16 @@ class SpinOnce(Node):
             f"for {duration_s:.2f}s at |ω|={abs(self.angular_vel):.2f} rad/s."
         )
 
-        # Start spinning
+        # Spin for the calculated duration
         self.drive(0.0, self.angular_vel)
         sleep(duration_s)
 
-        # Stop and finish
+        # Stop after spinning
         self.drive(0.0, 0.0)
         self.get_logger().info("Done spinning 360°. Stopping node.")
 
     def drive(self, linear: float, angular: float):
+        # Publish Twist message to cmd_vel
         msg = Twist()
         msg.linear.x = float(linear)
         msg.angular.z = float(angular)
