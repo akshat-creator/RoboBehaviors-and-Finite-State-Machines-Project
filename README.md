@@ -87,7 +87,8 @@ reporting it’s completed a full loop and restarting.
 
 - **Diagram/GIF:**
 
-    <img src="Images/Corner Diagram.png" width="400"/>
+![Corner Diagram](Images/CornerDiagram.png)
+
 
 ### People Follower
 
@@ -110,7 +111,7 @@ reporting it’s completed a full loop and restarting.
 
 - **Diagram/GIF:**
 
-    <img src="Images/PeopleFollower.png" width="600"/>
+![Corner Diagram](Images/PeopleFollower.png)
 
 ### Finite State Controller
 
@@ -152,7 +153,7 @@ stateDiagram-v2
 
 #### QRT_Graph
 
-<img src="Images/rosgraphv2.png"/>
+![Rosgraphv2](Images/rosgraphv2.png)
 
 #### Operation on Physcial Neato
 
@@ -161,6 +162,10 @@ stateDiagram-v2
 #### Operation in Gazebo
 
 [▶️ Watch demo on YouTube](https://youtu.be/Z0-pUuza7xg)
+
+### Testing person follower in Gazebo
+
+[▶️ Watch demo on YouTube](https://youtu.be/MQqfhTiEWlM)
 
 ## Challenges
 
@@ -190,10 +195,14 @@ stateDiagram-v2
 
 ## Code Structure
 
-- Package tree
-- Key nodes & responsibilities
-- Parameters (`config/params.yaml`)
-- Launch files
+Our code is organized around object-oriented principles, with each robot
+behavior (e.g., pentagon driving, spinning, person following) implemented as a
+separate Python class and ROS 2 node. The finite-state machine (FSM) itself is a
+class (`BehaviorFSM`) that inherits from `rclpy.node.Node` and manages state
+transitions, subprocess launching, and sensor/event handling. Behaviors are
+started and stopped as subprocesses, separation between nodes. The FSM class
+hold all state logic, parameters, and ROS publishers/subscribers, making it easy
+to add new behaviors or modify transitions.
 
 ## Debugging & Tools
 
